@@ -33,7 +33,7 @@ services:
     depends_on:
       - nginx
 
+# NETWORK SHOULD BE USED AS EXTERNAL NETWORK FROM OTHER DOCKER-COMPOSE FILES. 
 networks:
    default:
-      external:
          name: app-net
