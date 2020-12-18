@@ -9,7 +9,7 @@ services:
 #-----PROXY-----#
 
   nginx:
-    container_name: petropolis-nginx
+    container_name: nginx-map
     image: nginx:alpine
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
@@ -27,7 +27,7 @@ services:
       proxy:
   
   certbot:
-    container_name: petropolis-certbot
+    container_name: certbot-map
     image: certbot/certbot
     volumes:
       - ./ssl/certbot/conf:/etc/letsencrypt
