@@ -2,7 +2,9 @@ version: "3"
 
 networks:
   proxy:
+    name: traefik-global-proxy
   socket_proxy:
+    name: global-socket-proxy
 
 services:
   socket-proxy:
@@ -60,23 +62,23 @@ services:
       - socket_proxy
     restart: always
 
-  # portainer:
-  #   image: portainer/portainer
-  #   container_name: portainer
-  #   hostname: portainer
-  #   networks:
-  #     - proxy
-  #   volumes:
-  #     - /var/run/docker.sock:/var/run/docker.sock:ro
-  #   - ./portainer_data:/data
-  # labels:
-  #   - "traefik.enable=true"
-  #   - "traefik.http.routers.portainer.rule=Host(`portainer.cartography2020.de`)"
-  #   - "traefik.http.routers.portainer.entrypoints=websecure"
-  #   - "traefik.http.routers.portainer.tls.certresolver=myhttpchallenge"
-  #   - "traefik.http.routers.portainer.tls=true"
-  #   - "traefik.http.services.portainer.loadBalancer.server.port=9000"
-  # UNCOMMENT THIS ONLY IF YOU THE SERVICE IS EXPOSED WITH A CONTEXT
-  # - "traefik.http.routers.movies.rule=PathPrefix(`/api`)"
-  # restart: always
-
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - proxy
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - $PWD/data/portainer:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.rule=Host(`$PORTAINER_DOMAIN`)"
+      - "traefik.http.routers.portainer.entrypoints=websecure"
+      - "traefik.http.routers.portainer.tls.certresolver=myhttpchallenge"
+      - "traefik.http.routers.portainer.tls=true"
+      - "traefik.http.services.portainer.loadBalancer.server.port=9000"
+    restart: always
