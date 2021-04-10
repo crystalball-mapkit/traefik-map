@@ -9,7 +9,7 @@ To run the project the following steps must be followed:
 - Change .env file according to your settings
 
 
-- Create the network running the following command: 
+- Create the networks running the following command: 
 ```
 docker network create proxy
 ```
