@@ -1,39 +1,82 @@
-version: "3.7"
+version: "3"
 
+networks:
+  proxy:
+  socket_proxy:
 
 services:
-
-#-----PROXY-----#
-
-  nginx:
-    container_name: nginx-map
-    image: nginx:alpine
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy
+    container_name: socket-proxy
+    privileged: yes
+    environment:
+      - CONTAINERS=1
     volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
-      - ./nginx/dev.timetochange.today.conf:/etc/nginx/sites-enabled/dev.timetochange.today.conf
-      - ./nginx/devtiles.timetochange.today.conf:/etc/nginx/sites-enabled/devtiles.timetochange.today.conf
-      - ./nginx/map.deeptimechicago.org.conf:/etc/nginx/sites-enabled/map.deeptimechicago.org.conf
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ./ssl/certbot/conf:/etc/letsencrypt
-      - ./ssl/certbot/www:/var/www/certbot
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - socket_proxy
+    restart: always
+
+  traefik:
+    image: traefik:v2.3.5
+    container_name: traefik
     ports:
       - 80:80
       - 443:443
-    restart: always
-    command: /bin/sh -c "while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g 'daemon off;'"
-  
-  certbot:
-    container_name: certbot-map
-    image: certbot/certbot
-    volumes:
-      - ./ssl/certbot/conf:/etc/letsencrypt
-      - ./ssl/certbot/www:/var/www/certbot
-    restart: unless-stopped
-    entrypoint: /bin/sh -c "trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;"
     depends_on:
-      - nginx
+      - socket-proxy
+    entrypoint:
+      - /entrypoint-shim.sh
+    command:
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.endpoint=tcp://socket-proxy:2375"
+      - "--providers.docker.network=proxy"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.file.filename=/etc/traefik/config.yml"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.myhttpchallenge.acme.httpchallenge=true"
+      - "--certificatesresolvers.myhttpchallenge.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.myhttpchallenge.acme.email=$EMAIL"
+      - "--certificatesresolvers.myhttpchallenge.acme.storage=/letsencrypt/acme.json"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.middlewares.traefik-auth.basicauth.users=admin:$$2y$$05$$GGeLEnClIsWmz8QTr5LjfuhjD.RN4Ym3f/t1Pfjl2jQGI4Fx7UOTm"
+      - "traefik.http.routers.traefik.rule=Host(`$TRAEFIK_DOMAIN`)"
+      - "traefik.http.routers.traefik.tls.certresolver=myhttpchallenge"
+      - "traefik.http.routers.traefik.middlewares=traefik-auth"
+      - "traefik.http.routers.traefik.tls=true"
+      - "traefik.http.routers.traefik.service=api@internal"
+    volumes:
+      - $PWD/traefik/entrypoint-shim.sh:/entrypoint-shim.sh
+      - $PWD/traefik/config.yml:/etc/traefik/config.yml
+      - $PWD/data/traefik/letsencrypt:/letsencrypt
+    networks:
+      - proxy
+      - socket_proxy
+    restart: always
 
-# NETWORK SHOULD BE USED AS EXTERNAL NETWORK FROM OTHER DOCKER-COMPOSE FILES. 
-networks:
-   default:
-         name: app-net
+  # portainer:
+  #   image: portainer/portainer
+  #   container_name: portainer
+  #   hostname: portainer
+  #   networks:
+  #     - proxy
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock:ro
+  #   - ./portainer_data:/data
+  # labels:
+  #   - "traefik.enable=true"
+  #   - "traefik.http.routers.portainer.rule=Host(`portainer.cartography2020.de`)"
+  #   - "traefik.http.routers.portainer.entrypoints=websecure"
+  #   - "traefik.http.routers.portainer.tls.certresolver=myhttpchallenge"
+  #   - "traefik.http.routers.portainer.tls=true"
+  #   - "traefik.http.services.portainer.loadBalancer.server.port=9000"
+  # UNCOMMENT THIS ONLY IF YOU THE SERVICE IS EXPOSED WITH A CONTEXT
+  # - "traefik.http.routers.movies.rule=PathPrefix(`/api`)"
+  # restart: always
+
