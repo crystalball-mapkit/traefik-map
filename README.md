@@ -6,13 +6,7 @@ This repository contains a traefik docker-compose configuration for crystalball 
 
 To run the project the following steps must be followed: 
 
-- Change .env file according to your settings
-
-
-- Create the networks running the following command: 
-```
-docker network create proxy
-```
+- Change .env file according to your settings ; for the TRAEFIK and PORTAINER dashboards you need to create a subdomain on top of your main domain, eg "traefik.mydomain.org"
 
 - Run the services:
 
